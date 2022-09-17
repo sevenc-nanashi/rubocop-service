@@ -2,7 +2,7 @@
 
 require "pathname"
 
-module Rubocop
+module RuboCop
   module Service
     class Uninstaller
       def run

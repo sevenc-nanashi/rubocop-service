@@ -2,7 +2,7 @@
 
 require "optparse"
 
-module Rubocop
+module RuboCop
   module Service
     class CLI
       def initialize
@@ -21,9 +21,11 @@ module Rubocop
 
         case argv[0]
         when "install"
-          Rubocop::Service::Installer.new.run
+          RuboCop::Service::Installer.new.run
         when "uninstall"
-          Rubocop::Service::Uninstaller.new.run
+          RuboCop::Service::Uninstaller.new.run
+        when "start"
+          RuboCop::Service::Server.start
         when nil
           puts parser.help
         else

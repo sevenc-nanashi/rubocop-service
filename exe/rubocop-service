@@ -2,4 +2,4 @@
 
 require "rubocop/service"
 
-Rubocop::Service::CLI.new.run(ARGV)
+RuboCop::Service::CLI.new.run(ARGV)
