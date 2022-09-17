@@ -4,7 +4,7 @@ require "pathname"
 
 module Rubocop
   module Service
-    class Installer
+    class Uninstaller
       def run
         puts "Reinstalling rubocop..."
         system "gem install rubocop -N"

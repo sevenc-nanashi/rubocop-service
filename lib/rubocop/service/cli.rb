@@ -23,7 +23,7 @@ module Rubocop
         when "install"
           Rubocop::Service::Installer.new.run
         when "uninstall"
-          uninstall
+          Rubocop::Service::Uninstaller.new.run
         when nil
           puts parser.help
         else
