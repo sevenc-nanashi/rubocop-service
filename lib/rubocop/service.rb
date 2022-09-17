@@ -1,11 +1,14 @@
 # frozen_string_literal: true
 
 require_relative "service/version"
+require_relative "service/utils"
 
 module Rubocop
   module Service
     class Error < StandardError
     end
-    # Your code goes here...
+
+    autoload :CLI, "rubocop/service/cli"
+    autoload :Installer, "rubocop/service/installer"
   end
 end

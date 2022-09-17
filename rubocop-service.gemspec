@@ -37,6 +37,7 @@ Gem::Specification.new do |spec|
 
   # Uncomment to register a new dependency of your gem
   spec.add_dependency "rubocop", "~> 1.36.0"
+  spec.add_dependency "win32-service",  "~> 2.3.2"
 
   spec
 end

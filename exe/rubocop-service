@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+
+require "rubocop/service"
+
+Rubocop::Service::CLI.new.run(ARGV)
