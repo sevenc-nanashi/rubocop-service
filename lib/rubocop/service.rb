@@ -10,5 +10,6 @@ module Rubocop
 
     autoload :CLI, "rubocop/service/cli"
     autoload :Installer, "rubocop/service/installer"
+    autoload :Uninstaller, "rubocop/service/uninstaller"
   end
 end
