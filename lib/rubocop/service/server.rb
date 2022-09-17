@@ -12,7 +12,7 @@ require_relative "version"
 
 module RuboCop
   module Service
-    module Server
+    class Server
       DEFAULT_SERVER_CONFIG = {
         pid: -1,
         port: -1,
@@ -29,7 +29,7 @@ module RuboCop
       end
 
       def start
-        File.write(Server.server_config_path, DEFAULT_SERVER_CONFIG.to_json)
+        File.write(Server.server_config_path, server_config.to_json)
 
         loop do
           @threads << Thread.start(@server.accept) do |client|
@@ -61,8 +61,8 @@ module RuboCop
         end
       end
 
-      def spawn_server
-        spawn "cmd /c #{__dir__}/server.bat"
+      def spawn_server(directory)
+        spawn({"DIRECTORY" => directory}, "cmd /c #{__dir__}/server.bat")
       end
 
       def server_config
@@ -80,7 +80,7 @@ module RuboCop
           connection =
             TCPSocket.open(server_config[:host], server_config[:port])
           return connection unless block_given?
-          yield
+          yield connection
           connection.close
         end
 
@@ -105,7 +105,12 @@ module RuboCop
 
         def running?
           return false if server_config[:pid] == -1
-          Process.waitpid(server_config[:pid], Process::WNOHANG).nil?
+          begin
+            Process.kill(0, server_config[:pid])
+            true
+          rescue Errno::ECHILD
+            false
+          end
         end
 
         def server_config_path
@@ -139,20 +144,24 @@ module RuboCop
 end
 
 if __FILE__ == $PROGRAM_NAME
-  require "win32/daemon"
+  # require "win32/daemon"
 
-  class ServiceDaemon < Win32::Daemon
-    def service_main
-      server = RuboCop::Service::Server.new
-      Thread.start { server.start}
-      sleep 0.1 while running?
-      server.stop
-    end
+  # class ServiceDaemon < Win32::Daemon
+  #   def service_main
+  #     server = RuboCop::Service::Server.new
+  #     Thread.start { server.start }
+  #     sleep 0.1 while running?
+  #     server.stop
+  #   end
 
-    def service_stop
-      exit!
-    end
-  end
+  #   def service_stop
+  #     exit!
+  #   end
+  # end
 
-  ServiceDaemon.mainloop
+  # ServiceDaemon.mainloop
+  server = RuboCop::Service::Server.new
+      server.start
+      # sleep 0.1 while running?
+      # server.stop
 end
