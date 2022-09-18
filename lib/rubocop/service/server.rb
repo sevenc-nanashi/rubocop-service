@@ -292,6 +292,8 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   require "win32/daemon"
+  $stdout = File.open(File.expand_path("~/.rubocop-service.log"), "w")
+  $stderr = File.open(File.expand_path("~/.rubocop-service.log"), "w")
 
   class ServiceDaemon < Win32::Daemon
     def service_main
