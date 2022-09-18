@@ -39,5 +39,11 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rubocop", "~> 1.36.0"
   spec.add_dependency "win32-service",  "~> 2.3.2"
 
-spec.metadata["rubygems_mfa_required"] = "true"
+  spec.metadata["rubygems_mfa_required"] = "true"
+  spec.post_install_message = <<~MESSAGE
+    Thanks for installing rubocop-service!
+    You need to run `rubocop-service install` to patch rubocop,
+      and `rubocop-service start` with administrator privileges
+      to start the manager server.
+  MESSAGE
 end

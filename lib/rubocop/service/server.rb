@@ -215,11 +215,39 @@ module RuboCop
             register unless Win32::Service.exists?(SERVICE_NAME)
             Win32::Service.start SERVICE_NAME
           rescue Errno::EIO
-            warn "Could not start service! Missing administrator privileges?"
+            puts "Could not start service! Missing administrator privileges?"
             exit 1
           end
 
           puts "Service started successfully!"
+        end
+
+        def stop
+          unless Win32::Service.exists?(SERVICE_NAME)
+            puts "Service not found."
+            exit 1
+          end
+
+          if running?
+            begin
+              Win32::Service.stop SERVICE_NAME
+            rescue Errno::EIO
+              puts "Could not stop service! Missing administrator privileges?"
+              exit 1
+            end
+            puts "Service stopped."
+          else
+            puts "Service is not running."
+            exit 1
+          end
+        end
+
+        def status
+          if running?
+            puts "Service is running."
+          else
+            puts "Service is not running."
+          end
         end
 
         def running?
@@ -263,24 +291,20 @@ module RuboCop
 end
 
 if __FILE__ == $PROGRAM_NAME
-  # require "win32/daemon"
+  require "win32/daemon"
 
-  # class ServiceDaemon < Win32::Daemon
-  #   def service_main
-  #     server = RuboCop::Service::Server.new
-  #     Thread.start { server.start }
-  #     sleep 0.1 while running?
-  #     server.stop
-  #   end
+  class ServiceDaemon < Win32::Daemon
+    def service_main
+      server = RuboCop::Service::Server.new
+      Thread.start { server.start }
+      sleep 0.1 while running?
+      server.stop
+    end
 
-  #   def service_stop
-  #     exit!
-  #   end
-  # end
+    def service_stop
+      exit!
+    end
+  end
 
-  # ServiceDaemon.mainloop
-  server = RuboCop::Service::Server.new
-  server.start
-  # sleep 0.1 while running?
-  # server.stop
+  ServiceDaemon.mainloop
 end
