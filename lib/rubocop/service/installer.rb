@@ -15,10 +15,10 @@ module RuboCop
         dputs "rubocop.rb path:", rubocop_path
         rubocop_dir = Pathname.new File.dirname(rubocop_path)
         dputs "rubocop dir:", rubocop_dir
-        # if (rubocop_dir / ".rubocop-service_patched").exist?
-        #   warn "Already patched! Use `rubocop-service uninstall` to restore."
-        #   exit 1
-        # end
+        if (rubocop_dir / ".rubocop-service_patched").exist?
+          warn "Already patched! Use `rubocop-service uninstall` to restore."
+          exit 1
+        end
         puts "RuboCop found, patching it..."
         patch_libs = Dir.glob("#{__dir__}/patch/**/*.rb")
         patch_libs.each do |libpath|
