@@ -1,15 +1,12 @@
 # rubocop-service / Unofficial support of rubocop server, for Windows!
 
 > **Warning**
-> This project is incomplete! Do not use it.
+> This project is beta!
 
 This gem provides support of rubocop server for Windows.
 This gem patches rubocop.
 
 ## Installation
-
-> **Note**
-> This gem is not published yet.
 
 You can install this gem using the following command:
 
@@ -19,7 +16,9 @@ This gem is not for bundler.
 
 ## Usage
 
-TODO...
+1. Run `rubocop-service start` with administrator privileges to start the manager server.
+2. Run `rubocop-service install` to patch rubocop.
+3. Enjoy faster rubocop!
 
 ## Development
 
