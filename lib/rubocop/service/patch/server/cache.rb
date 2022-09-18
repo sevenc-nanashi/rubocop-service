@@ -4,6 +4,22 @@ module RuboCop
   module Server
     class Cache
       class << self
+        def project_dir
+          current_dir = Dir.pwd
+          while current_dir != "/" && current_dir.match?(%r{[a-zA-Z]:/})
+            # rubocop:disable Style/BlockDelimiters
+            if GEMFILE_NAMES.any? { |gemfile|
+                 File.exist?(File.join(current_dir, gemfile))
+               }
+              return current_dir
+            end
+            # rubocop:enable Style/BlockDelimiters
+
+            current_dir = File.expand_path("..", current_dir)
+          end
+          Dir.pwd
+        end
+
         def project_dir_cache_key
           @project_dir_cache_key ||= project_dir.tr("/:", "++")
         end

@@ -280,7 +280,7 @@ module RuboCop
               "RuboCop Server for windows, provided by rubocop-service gem",
             start_type: Win32::Service::AUTO_START,
             error_control: Win32::Service::ERROR_NORMAL,
-            binary_path_name: "#{RbConfig.ruby} #{File.expand_path(__FILE__)}",
+            binary_path_name: "#{RbConfig.ruby} #{File.expand_path(__FILE__)} service",
             load_order_group: "Network",
             dependencies: %w[W32Time Schedule]
           )
@@ -291,22 +291,26 @@ module RuboCop
 end
 
 if __FILE__ == $PROGRAM_NAME
-  require "win32/daemon"
-  $stdout = File.open(File.expand_path("~/.rubocop-service.log"), "w")
-  $stderr = File.open(File.expand_path("~/.rubocop-service.log"), "w")
+  if ARGV.include?("service")
+    require "win32/daemon"
+    $stdout = File.open(File.expand_path("~/.rubocop-service.log"), "w")
+    $stderr = File.open(File.expand_path("~/.rubocop-service.log"), "w")
 
-  class ServiceDaemon < Win32::Daemon
-    def service_main
-      server = RuboCop::Service::Server.new
-      Thread.start { server.start }
-      sleep 0.1 while running?
-      server.stop
-    end
+    class ServiceDaemon < Win32::Daemon
+      def service_main
+        server = RuboCop::Service::Server.new
+        Thread.start { server.start }
+        sleep 0.1 while running?
+        server.stop
+      end
 
-    def service_stop
-      exit!
+      def service_stop
+        exit!
+      end
     end
+    ServiceDaemon.mainloop
+  else
+    server = RuboCop::Service::Server.new
+    server.start
   end
-
-  ServiceDaemon.mainloop
 end

@@ -55,7 +55,11 @@ module RuboCop
 
         ENV["RUBOCOP_SERVICE_VERBOSE"] = "true" if @options[:verbose]
 
-        @commands[argv.first] ? @commands[argv.first].last.call : @commands[nil].last.call
+        if @commands[argv.first]
+          @commands[argv.first].last.call
+        else
+          @commands[nil].last.call
+        end
       end
 
       def command(name, description = nil, &block)
