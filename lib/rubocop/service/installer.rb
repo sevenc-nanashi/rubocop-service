@@ -20,23 +20,20 @@ module RuboCop
         #   exit 1
         # end
         puts "RuboCop found, patching it..."
-        Dir
-          .glob("#{__dir__}/patch/**/*.rb")
-          .each do |libpath|
-            path =
-              (Pathname.new libpath).relative_path_from(__dir__).sub(
-                "patch/",
-                ""
-              )
-            rubocop_file = rubocop_dir / "rubocop" / path
-            rubocop_file.open("a") do |file|
-              file.puts "# !!! Patched by rubocop-service !!!"
-              file.puts "require 'rubocop/service/patch/#{path.sub(".rb", "")}' if RuboCop::Platform.windows?"
-              file.puts "# !!! End of patch !!!"
-            end
-            dputs "Patched:", rubocop_file
+        patch_libs = Dir.glob("#{__dir__}/patch/**/*.rb")
+        patch_libs.each do |libpath|
+          path =
+            (Pathname.new libpath).relative_path_from(__dir__).sub("patch/", "")
+          rubocop_file = rubocop_dir / "rubocop" / path
+          rubocop_file.open("a") do |file|
+            file.puts "# !!! Patched by rubocop-service !!!"
+            file.puts "require 'rubocop/service/patch/#{path.sub(".rb", "")}' if RuboCop::Platform.windows?"
+            file.puts "# !!! End of patch !!!"
           end
+          dputs "Patched:", rubocop_file
+        end
         (rubocop_dir / ".rubocop-service_patched").open("w").close
+        puts "Patched #{patch_libs.size} files! Run `rubocop-service uninstall` to restore."
       end
 
       def find_rubocop_path

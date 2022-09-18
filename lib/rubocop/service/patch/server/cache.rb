@@ -9,15 +9,31 @@ module RuboCop
         end
 
         def write_pid_file
-          begin
-            pid_path.write(Process.pid)
-            yield
-          ensure
-            dir.rmtree
+          pid_path.write(Process.pid)
+          yield
+        ensure
+          $unlocker&.call # rubocop:disable Style/GlobalVars
+          dir.rmtree
+        end
+
+        def acquire_lock
+          lock_file = File.open(lock_path, File::CREAT)
+          # flock returns 0 if successful, and false if not.
+          flock_result = lock_file.flock(File::LOCK_EX | File::LOCK_NB)
+          # rubocop:disable Style/GlobalVars
+          $unlocker = -> do
+            next if lock_file.closed?
+            lock_file.flock(File::LOCK_UN)
+            lock_file.close
           end
-        rescue Errno::EACCES
-          sleep 1
-          retry
+          # rubocop:enable Style/GlobalVars
+          yield flock_result != false
+        end
+
+        def pid_running?
+          Process.kill(0, pid_path.read.to_i) == 1
+        rescue Errno::ESRCH, Errno::ENOENT
+          false
         end
       end
     end

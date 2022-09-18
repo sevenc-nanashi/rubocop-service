@@ -28,28 +28,36 @@ module RuboCop
         port = ENV.fetch("RUBOCOP_SERVICE_SERVER_PORT", 0)
         @server = TCPServer.open(host, port)
         @threads = []
+        @processes = []
       end
 
       def start
         File.write(Server.server_config_path, server_config.to_json)
         puts "Server ready! pid: #{Process.pid}, port: #{port}, host: #{host}"
 
-        loop do
-          # process(@server.accept)
-          # client.close
-          @threads << Thread.start(@server.accept) do |client|
-            puts "#{Thread.current.inspect}: Connected #{client.inspect}"
-            process(client)
-            puts "#{Thread.current.inspect}: Processed #{client.inspect}"
-            client.close
+        @main_thread =
+          Thread.new do
+            loop do
+              # process(@server.accept)
+              # client.close
+              @threads << Thread.start(@server.accept) do |client|
+                puts "#{Thread.current.inspect}: Connected #{client.inspect}"
+                process(client)
+                puts "#{Thread.current.inspect}: Processed #{client.inspect}"
+                client.close
+              end
+            end
           end
-        rescue Interrupt
-          stop
-        end
+        @main_thread.join
+      rescue Interrupt
+        puts "Terminating..."
+        stop
       end
 
       def stop
+        @processes.each(&:kill)
         @threads.each(&:kill)
+        @main_thread.kill
       end
 
       def process(connection)
@@ -86,42 +94,56 @@ module RuboCop
           i.close
           queue = Queue.new
           started = false
-          con_threads = [
-            Thread.start do
-              while (od = o.readpartial(4096))
-                $stdout.write od
-                if od.include?("rubocop-service-nonce:#{nonce}")
-                queue << 0
+          @processes << t
+          Thread.start do
+            while (od = o.readpartial(4096))
+              $stdout.write od
+              $stdout.flush
+              if od.include?("rubocop-service-nonce:#{nonce}")
+                queue << -1
                 od.gsub!("rubocop-service-nonce:#{nonce}", "")
-                end
-                connection.puts(
-                  JSON.generate({ type: "stdout", message: od })
-                ) unless started
               end
-            rescue IOError
-              # ignore
-            end,
-            Thread.start do
-              while (data = e.readpartial(4096))
-                $stderr.write data
-                connection.puts(
-                  JSON.generate({ type: "stderr", message: data })
-                ) unless started
+              unless started
+                connection.puts("#{{ type: "stdout", message: od }.to_json}\n")
               end
-            rescue IOError
-              # ignore
-            end,
-            Thread.start { queue << t.value },
-          ]
+            end
+          rescue IOError
+            # ignore
+          end
+          Thread.start do
+            while (ed = e.readpartial(4096))
+              $stderr.write ed
+              $stderr.flush
+              unless started
+                connection.puts("#{{ type: "stderr", message: ed }.to_json}\n")
+              end
+            end
+          rescue IOError
+            # ignore
+          end
+          Thread.start { queue << t.value }
           exit_status = queue.pop
-          con_threads.each(&:kill)
 
           connection.puts(
-            JSON.generate({ type: "exitcode", message: exit_status })
+            JSON.generate(
+              { type: "exitcode", message: exit_status == -1 ? 0 : exit_status }
+            )
           )
-          puts "#{Thread.current.inspect}: Server started."
+          case exit_status
+          when -1
+            puts "#{Thread.current.inspect}: Server started."
+          else
+            puts "#{Thread.current.inspect}: Server failed to start."
+          end
           started = true
           t.join
+          exit_status = queue.pop
+          case exit_status
+          when 0
+            puts "#{Thread.current.inspect}: Server exited normally."
+          else
+            puts "#{Thread.current.inspect}: Server exited with error, exit status: #{exit_status}"
+          end
         end
       end
 
@@ -150,16 +172,25 @@ module RuboCop
           exitcode = nil
           connection_thread =
             Thread.new do
-              while (message = connection.gets)
-                data = JSON.parse(message, symbolize_names: true)
-                case data[:type]
-                when "stdout"
-                  $stdout.write(data[:message])
-                when "stderr"
-                  $stderr.write(data[:message])
-                when "exitcode"
-                  exitcode = data[:message]
-                  break
+              catch :exit do
+                while (messages = connection.gets)
+                  messages
+                    .split("\n")
+                    .each do |message|
+                      next if message.strip.empty?
+                      data = JSON.parse(message, symbolize_names: true)
+                      case data[:type]
+                      when "stdout"
+                        $stdout.write(data[:message])
+                      when "stderr"
+                        $stderr.write(data[:message])
+                      when "exitcode"
+                        exitcode = data[:message]
+                        throw :exit
+                      end
+                    rescue JSON::ParserError
+                      warn "Invalid message received: #{message}"
+                    end
                 end
               end
             rescue IOError

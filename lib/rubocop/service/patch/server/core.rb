@@ -11,11 +11,7 @@ module RuboCop
         Cache.write_pid_file do
           print "rubocop-service-nonce:#{ENV.fetch("RUBOCOP_SERVICE_STARTING_NONCE", "")}"
           $stdout.flush
-          until @server.closed?
-            socket = @server.accept
-            break unless socket
-            read_socket(socket)
-          end
+          read_socket(@server.accept) until @server.closed?
         end
       end
     end

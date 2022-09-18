@@ -41,7 +41,7 @@ module RuboCop
               warn "\nConnection closed without exit code. Please check the server log: #{File.expand_path("~/.rubocop-service.log")}"
               exit 1
             else
-              exit exit_code
+              exit exit_code.to_i
             end
           end
         end
