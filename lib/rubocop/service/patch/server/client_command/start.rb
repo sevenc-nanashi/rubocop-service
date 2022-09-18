@@ -38,7 +38,10 @@ module RuboCop
                                 )
               end
             if exit_code.nil?
-              warn "\nConnection closed without exit code. Please check the server log: #{File.expand_path("~/.rubocop-service.log")}"
+              warn(
+                "\nConnection closed without exit code. " \
+                  "Please check the server log: #{File.expand_path("~/.rubocop-service.log")}"
+              )
               exit 1
             else
               exit exit_code.to_i

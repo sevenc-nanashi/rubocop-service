@@ -24,7 +24,10 @@ module RuboCop
         rubocop_files.filter! do |path|
           dputs "Checking:", path
           content = path.read
-          if content.gsub!(/# !!! Patched by rubocop-service !!!.*# !!! End of patch !!!\n/m, "")
+          if content.gsub!(
+               /# !!! Patched by rubocop-service !!!.*# !!! End of patch !!!\n/m,
+               ""
+             )
             dputs "Unpatched."
             path.write content
           else
