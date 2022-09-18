@@ -13,3 +13,6 @@ Lint/ScriptPermission:
 
 Metrics:
   Enabled: false
+
+Style/IfUnlessModifier:
+  Enabled: false
