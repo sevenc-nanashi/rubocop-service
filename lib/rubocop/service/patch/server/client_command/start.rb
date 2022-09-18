@@ -31,10 +31,17 @@ module RuboCop
               Server::Core.new.start(host, port)
             end
           else
-            RuboCop::Service::Server.connect do |connection|
-              connection.puts JSON.generate(
-                                { type: :spawn, directory: Dir.pwd }
-                              )
+            exit_code =
+              RuboCop::Service::Server.connect do |connection|
+                connection.puts JSON.generate(
+                                  { type: :spawn, directory: Dir.pwd }
+                                )
+              end
+            if exit_code.nil?
+              warn "\nConnection closed without exit code. Please check the server log: #{File.expand_path("~/.rubocop-service.log")}"
+              exit 1
+            else
+              exit exit_code
             end
           end
         end

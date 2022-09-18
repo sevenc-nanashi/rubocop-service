@@ -4,11 +4,13 @@
 # This script may be run separately from the library.
 
 require "socket"
-require "rubocop"
 require "json"
 require "win32/service"
 require "rbconfig"
 require_relative "version"
+require "open3"
+require "securerandom"
+require "English"
 
 module RuboCop
   module Service
@@ -30,12 +32,19 @@ module RuboCop
 
       def start
         File.write(Server.server_config_path, server_config.to_json)
+        puts "Server ready! pid: #{Process.pid}, port: #{port}, host: #{host}"
 
         loop do
+          # process(@server.accept)
+          # client.close
           @threads << Thread.start(@server.accept) do |client|
+            puts "#{Thread.current.inspect}: Connected #{client.inspect}"
             process(client)
+            puts "#{Thread.current.inspect}: Processed #{client.inspect}"
             client.close
           end
+        rescue Interrupt
+          stop
         end
       end
 
@@ -43,35 +52,94 @@ module RuboCop
         @threads.each(&:kill)
       end
 
-      def process(client)
-        r = client.read
+      def process(connection)
+        r = connection.gets
         message = JSON.parse(r, symbolize_names: true)
         case message[:type]
         when "spawn"
-          spawn_server(message[:directory])
+          spawn_server(connection, message[:directory])
         else
-          client.write(
+          connection.puts(
             JSON.generate(
               {
-                message: "Unknown message type: #{message[:type]}",
-                type: "unknown_message_type"
+                type: "stderr",
+                message:
+                  "Unknown message type: #{message[:type]}. This is bug, please report it to https://github.com/sevenc-nanashi/rubocop-service/issues"
               }
             )
           )
+          connection.puts(JSON.generate({ type: "exitcode", message: 1 }))
         end
       end
 
-      def spawn_server(directory)
-        spawn({"DIRECTORY" => directory}, "cmd /c #{__dir__}/server.bat")
+      def spawn_server(connection, directory)
+        nonce = SecureRandom.hex(8)
+        puts "#{Thread.current.inspect}: Starting server..."
+        Open3.popen3(
+          {
+            "RUBOCOP_SERVICE_SERVER_PROCESS" => "true",
+            "RUBOCOP_SERVICE_STARTING_NONCE" => nonce
+          },
+          "rubocop --start-server",
+          chdir: directory
+        ) do |i, o, e, t|
+          i.close
+          queue = Queue.new
+          started = false
+          con_threads = [
+            Thread.start do
+              while (od = o.readpartial(4096))
+                $stdout.write od
+                if od.include?("rubocop-service-nonce:#{nonce}")
+                queue << 0
+                od.gsub!("rubocop-service-nonce:#{nonce}", "")
+                end
+                connection.puts(
+                  JSON.generate({ type: "stdout", message: od })
+                ) unless started
+              end
+            rescue IOError
+              # ignore
+            end,
+            Thread.start do
+              while (data = e.readpartial(4096))
+                $stderr.write data
+                connection.puts(
+                  JSON.generate({ type: "stderr", message: data })
+                ) unless started
+              end
+            rescue IOError
+              # ignore
+            end,
+            Thread.start { queue << t.value },
+          ]
+          exit_status = queue.pop
+          con_threads.each(&:kill)
+
+          connection.puts(
+            JSON.generate({ type: "exitcode", message: exit_status })
+          )
+          puts "#{Thread.current.inspect}: Server started."
+          started = true
+          t.join
+        end
       end
 
       def server_config
         {
           pid: Process.pid,
-          port: @server.addr[1],
-          host: @server.addr[3],
+          port: port,
+          host: host,
           version: RuboCop::Service::VERSION
         }
+      end
+
+      def host
+        @server.addr[3]
+      end
+
+      def port
+        @server.addr[1]
       end
 
       class << self
@@ -79,9 +147,29 @@ module RuboCop
           assert_running
           connection =
             TCPSocket.open(server_config[:host], server_config[:port])
+          exitcode = nil
+          connection_thread =
+            Thread.new do
+              while (message = connection.gets)
+                data = JSON.parse(message, symbolize_names: true)
+                case data[:type]
+                when "stdout"
+                  $stdout.write(data[:message])
+                when "stderr"
+                  $stderr.write(data[:message])
+                when "exitcode"
+                  exitcode = data[:message]
+                  break
+                end
+              end
+            rescue IOError
+              # ignore
+            end
           return connection unless block_given?
           yield connection
+          connection_thread.join
           connection.close
+          exitcode
         end
 
         def assert_running
@@ -108,7 +196,7 @@ module RuboCop
           begin
             Process.kill(0, server_config[:pid])
             true
-          rescue Errno::ECHILD
+          rescue Errno::ESRCH
             false
           end
         end
@@ -161,7 +249,7 @@ if __FILE__ == $PROGRAM_NAME
 
   # ServiceDaemon.mainloop
   server = RuboCop::Service::Server.new
-      server.start
-      # sleep 0.1 while running?
-      # server.stop
+  server.start
+  # sleep 0.1 while running?
+  # server.stop
 end

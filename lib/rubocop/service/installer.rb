@@ -31,7 +31,7 @@ module RuboCop
             rubocop_file = rubocop_dir / "rubocop" / path
             rubocop_file.open("a") do |file|
               file.puts "# !!! Patched by rubocop-service !!!"
-              file.puts "require 'rubocop/service/patch/#{path}' if RuboCop::Platform.windows?"
+              file.puts "require 'rubocop/service/patch/#{path.sub(".rb", "")}' if RuboCop::Platform.windows?"
               file.puts "# !!! End of patch !!!"
             end
             dputs "Patched:", rubocop_file
